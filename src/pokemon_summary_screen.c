@@ -46,6 +46,7 @@
 #include "constants/rgb.h"
 #include "constants/songs.h"
 #include "constants/species.h"
+#include "constants/battle_move_effects.h"
 
 // Screen titles (upper left)
 #define PSS_LABEL_WINDOW_POKEMON_INFO_TITLE 0
@@ -3800,12 +3801,22 @@ static void SetMonTypeIcons(void)
 
 static void SetMoveTypeIcons(void)
 {
+    const struct BattleMove *move;
+    u8 type;
+
     u8 i;
     struct PokeSummary *summary = &sMonSummaryScreen->summary;
     for (i = 0; i < MAX_MON_MOVES; i++)
     {
         if (summary->moves[i] != MOVE_NONE)
-            SetMoveTypeSpritePosAndType(gBattleMoves[summary->moves[i]].type, 0x55, 0x20 + (i * 0x10), i + 3);
+        {
+            move = &gBattleMoves[summary->moves[i]];
+            type = move->type;
+            if (move->effect == EFFECT_HIDDEN_POWER)
+                type = GetHiddenPowerTypeFromMon(&sMonSummaryScreen->currentMon);
+
+            SetMoveTypeSpritePosAndType(type, 0x55, 0x20 + (i * 0x10), i + 3);
+        }
         else
             SetSpriteInvisibility(i + 3, TRUE);
     }

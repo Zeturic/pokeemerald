@@ -597,5 +597,8 @@ bool8 sub_806F104(void);
 struct Unknown_806F160_Struct *sub_806F2AC(u8 id, u8 arg1);
 void sub_806F47C(u8 id);
 u8 *sub_806F4F8(u8 id, u8 arg1);
+u8 GetHiddenPowerTypeFromIVs(u8 hpIV, u8 attackIV, u8 defenseIV, u8 speedIV, u8 spAttackIV, u8 spDefenseIV);
+u8 GetHiddenPowerTypeFromMon(struct Pokemon* mon);
+u8 GetHiddenPowerTypeFromBattleMon(struct BattlePokemon* mon);
 
 #endif // GUARD_POKEMON_H

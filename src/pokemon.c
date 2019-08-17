@@ -6945,3 +6945,47 @@ u8 *sub_806F4F8(u8 id, u8 arg1)
         return structPtr->byteArrays[arg1];
     }
 }
+
+u8 GetHiddenPowerTypeFromIVs(u8 hpIV, u8 attackIV, u8 defenseIV, u8 speedIV, u8 spAttackIV, u8 spDefenseIV)
+{
+    u8 typeBits;
+    u8 type;
+
+    typeBits  = ((hpIV & 1) << 0)
+              | ((attackIV & 1) << 1)
+              | ((defenseIV & 1) << 2)
+              | ((speedIV & 1) << 3)
+              | ((spAttackIV & 1) << 4)
+              | ((spDefenseIV & 1) << 5);
+
+    type = (15 * typeBits) / 63 + 1;
+
+    if (type >= TYPE_MYSTERY)
+        type++;
+
+    return type;
+}
+
+u8 GetHiddenPowerTypeFromMon(struct Pokemon* mon)
+{
+    return GetHiddenPowerTypeFromIVs(
+        GetMonData(mon, MON_DATA_HP_IV, NULL),
+        GetMonData(mon, MON_DATA_ATK_IV, NULL),
+        GetMonData(mon, MON_DATA_DEF_IV, NULL),
+        GetMonData(mon, MON_DATA_SPEED_IV, NULL),
+        GetMonData(mon, MON_DATA_SPATK_IV, NULL),
+        GetMonData(mon, MON_DATA_SPDEF_IV, NULL)
+    );
+}
+
+u8 GetHiddenPowerTypeFromBattleMon(struct BattlePokemon* mon)
+{
+    return GetHiddenPowerTypeFromIVs(
+        mon->hpIV,
+        mon->attackIV,
+        mon->defenseIV,
+        mon->speedIV,
+        mon->spAttackIV,
+        mon->spDefenseIV
+    );
+}

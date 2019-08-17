@@ -34,6 +34,7 @@
 #include "constants/songs.h"
 #include "constants/trainers.h"
 #include "constants/rgb.h"
+#include "constants/battle_move_effects.h"
 
 extern struct MusicPlayerInfo gMPlayInfo_BGM;
 
@@ -1476,6 +1477,9 @@ static void MoveSelectionDisplayPpNumber(void)
 
 static void MoveSelectionDisplayMoveType(void)
 {
+    const struct BattleMove *move;
+    u8 type;
+
     u8 *txtPtr;
     struct ChooseMoveStruct *moveInfo = (struct ChooseMoveStruct*)(&gBattleBufferA[gActiveBattler][4]);
 
@@ -1487,7 +1491,12 @@ static void MoveSelectionDisplayMoveType(void)
     txtPtr[0] = 1;
     txtPtr++;
 
-    StringCopy(txtPtr, gTypeNames[gBattleMoves[moveInfo->moves[gMoveSelectionCursor[gActiveBattler]]].type]);
+    move = &gBattleMoves[moveInfo->moves[gMoveSelectionCursor[gActiveBattler]]];
+    type = move->type;
+    if (move->effect == EFFECT_HIDDEN_POWER)
+        type = GetHiddenPowerTypeFromBattleMon(&gBattleMons[gActiveBattler]);
+
+    StringCopy(txtPtr, gTypeNames[type]);
     BattlePutTextOnWindow(gDisplayedStringBattle, 10);
 }
 
