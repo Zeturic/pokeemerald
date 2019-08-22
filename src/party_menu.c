@@ -388,6 +388,7 @@ static void CursorCb_Register(u8 taskId);
 static void CursorCb_Trade1(u8 taskId);
 static void CursorCb_Trade2(u8 taskId);
 static void CursorCb_Toss(u8 taskId);
+static void CursorCb_MoveItem(u8 taskId);
 static void CursorCb_FieldMove(u8 taskId);
 static bool8 SetUpFieldMove_Surf(void);
 static bool8 SetUpFieldMove_Fly(void);
@@ -849,9 +850,9 @@ static const struct WindowTemplate gUnknown_08615950 =
 {
 	.bg = 2,
 	.tilemapLeft = 23,
-	.tilemapTop = 13,
+	.tilemapTop = 11,
 	.width = 6,
-	.height = 6,
+	.height = 8,
 	.paletteNum = 14,
 	.baseBlock = 0x39D,
 };
@@ -1004,6 +1005,7 @@ static const u8 *const sActionStringTable[] =
     gText_DoWhatWithItem,
     gText_DoWhatWithMail,
     gText_AlreadyHoldingOne,
+    gText_MoveItemWhere
 };
 
 static const u8 *const sSelectionStringTable[] =
@@ -1053,6 +1055,7 @@ enum
     MENU_TRADE1,
     MENU_TRADE2,
     MENU_TOSS,
+    MENU_MOVE_ITEM,
     MENU_FIELD_MOVES,
 };
 
@@ -1102,6 +1105,7 @@ struct
     [MENU_TRADE1] = {gText_Trade4, CursorCb_Trade1},
     [MENU_TRADE2] = {gText_Trade4, CursorCb_Trade2},
     [MENU_TOSS] = {gMenuText_Toss, CursorCb_Toss},
+    [MENU_MOVE_ITEM] = {gMenuText_Move, CursorCb_MoveItem},
     [MENU_FIELD_MOVES + FIELD_MOVE_CUT] = {gMoveNames[MOVE_CUT], CursorCb_FieldMove},
     [MENU_FIELD_MOVES + FIELD_MOVE_FLASH] = {gMoveNames[MOVE_FLASH], CursorCb_FieldMove},
     [MENU_FIELD_MOVES + FIELD_MOVE_ROCK_SMASH] = {gMoveNames[MOVE_ROCK_SMASH], CursorCb_FieldMove},
@@ -1125,7 +1129,7 @@ static const u8 gUnknown_08615D19[] = {MENU_SUMMARY, MENU_CANCEL1};
 static const u8 gUnknown_08615D1B[] = {MENU_ENTER, MENU_SUMMARY, MENU_CANCEL1};
 static const u8 gUnknown_08615D1E[] = {MENU_NO_ENTRY, MENU_SUMMARY, MENU_CANCEL1};
 static const u8 gUnknown_08615D21[] = {MENU_STORE, MENU_SUMMARY, MENU_CANCEL1};
-static const u8 gUnknown_08615D24[] = {MENU_GIVE, MENU_TAKE_ITEM, MENU_CANCEL2};
+static const u8 gUnknown_08615D24[] = {MENU_GIVE, MENU_TAKE_ITEM, MENU_MOVE_ITEM, MENU_CANCEL2};
 static const u8 gUnknown_08615D27[] = {MENU_READ, MENU_TAKE_MAIL, MENU_CANCEL2};
 static const u8 gUnknown_08615D2A[] = {MENU_REGISTER, MENU_SUMMARY, MENU_CANCEL1};
 static const u8 gUnknown_08615D2D[] = {MENU_TRADE1, MENU_SUMMARY, MENU_CANCEL1};
@@ -7417,5 +7421,118 @@ void sub_81B9918(void)
         }
         if (AnyStorageMonWithMove(move) != TRUE)
             gSpecialVar_Result = TRUE;
+    }
+}
+
+void CursorCb_MoveItemCallback(u8 taskId)
+{
+    u16 item1, item2;
+    u8 buffer[100];
+
+    if (gPaletteFade.active || sub_81221EC())
+        return;
+
+    switch (PartyMenuButtonHandler(&gUnknown_0203CEC8.unkA))
+    {
+    case 2:     // User hit B or A while on Cancel
+        sub_81B15D0(taskId, &gUnknown_0203CEC8.unkA);
+        break;
+    case 1:     // User hit A on a Pokemon
+        // Pokemon can't give away items to eggs or themselves
+        if (GetMonData(&gPlayerParty[gUnknown_0203CEC8.unkA], MON_DATA_IS_EGG)
+            || gUnknown_0203CEC8.slotId == gUnknown_0203CEC8.unkA)
+        {
+            PlaySE(SE_HAZURE);
+            return;
+        }
+
+        PlaySE(SE_SELECT);
+        gUnknown_0203CEC8.unkB = 0;
+
+        // look up held items
+        item1 = GetMonData(&gPlayerParty[gUnknown_0203CEC8.slotId], MON_DATA_HELD_ITEM);
+        item2 = GetMonData(&gPlayerParty[gUnknown_0203CEC8.unkA], MON_DATA_HELD_ITEM);
+
+        // swap the held items
+        SetMonData(&gPlayerParty[gUnknown_0203CEC8.slotId], MON_DATA_HELD_ITEM, &item2);
+        SetMonData(&gPlayerParty[gUnknown_0203CEC8.unkA], MON_DATA_HELD_ITEM, &item1);
+
+        // update the held item icons
+        sub_81B5C94(
+            &gPlayerParty[gUnknown_0203CEC8.slotId],
+            &gUnknown_0203CEDC[gUnknown_0203CEC8.slotId]
+        );
+
+        sub_81B5C94(
+            &gPlayerParty[gUnknown_0203CEC8.unkA],
+            &gUnknown_0203CEDC[gUnknown_0203CEC8.unkA]
+        );
+
+        // create the string describing the move
+        if (item2 == ITEM_NONE)
+        {
+            GetMonNickname(&gPlayerParty[gUnknown_0203CEC8.unkA], gStringVar1);
+            CopyItemName(item1, gStringVar2);
+            StringExpandPlaceholders(gStringVar4, gText_PkmnWasGivenItem);
+        }
+        else
+        {
+            GetMonNickname(&gPlayerParty[gUnknown_0203CEC8.slotId], gStringVar1);
+            CopyItemName(item1, gStringVar2);
+            StringExpandPlaceholders(buffer, gText_XsYAnd);
+
+            StringAppend(buffer, gText_XsYWereSwapped);
+            GetMonNickname(&gPlayerParty[gUnknown_0203CEC8.unkA], gStringVar1);
+            CopyItemName(item2, gStringVar2);
+            StringExpandPlaceholders(gStringVar4, buffer);
+        }
+
+        // display the string
+        sub_81B1B5C(gStringVar4, 1);
+
+        // update colors of selected boxes
+        sub_81B0FCC(gUnknown_0203CEC8.unkA, 0);
+        sub_81B0FCC(gUnknown_0203CEC8.slotId, 1);
+
+        // return to the main party menu
+        schedule_bg_copy_tilemap_to_vram(2);
+        gTasks[taskId].func = sub_81B469C;
+        break;
+    }
+}
+
+static void CursorCb_MoveItem(u8 taskId)
+{
+    struct Pokemon *mon = &gPlayerParty[gUnknown_0203CEC8.slotId];
+
+    PlaySE(SE_SELECT);
+
+    // delete old windows
+    sub_81B302C(&gUnknown_0203CEC4->windowId[1]);
+    sub_81B302C(&gUnknown_0203CEC4->windowId[0]);
+
+    if (GetMonData(mon, MON_DATA_HELD_ITEM) != ITEM_NONE)
+    {
+        gUnknown_0203CEC8.unkB = 8;
+
+        // show "Move item to where" in bottom left
+        display_pokemon_menu_message(27);
+        // update color of first selected box
+        sub_81B0FCC(gUnknown_0203CEC8.slotId, 1);
+
+        // set up callback
+        gUnknown_0203CEC8.unkA = gUnknown_0203CEC8.slotId;
+        gTasks[taskId].func = CursorCb_MoveItemCallback;
+    }
+    else
+    {
+        // create and display string about lack of hold item
+        GetMonNickname(mon, gStringVar1);
+        StringExpandPlaceholders(gStringVar4, gText_PkmnNotHolding);
+        sub_81B1B5C(gStringVar4, 1);
+
+        // return to the main party menu
+        schedule_bg_copy_tilemap_to_vram(2);
+        gTasks[taskId].func = sub_81B469C;
     }
 }
